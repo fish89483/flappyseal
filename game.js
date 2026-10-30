@@ -23,7 +23,7 @@
     startButton.disabled = true;
     startButton.textContent = '素材載入失敗，請重新整理';
   }
-  for (const [key, src] of Object.entries({lift:'seal-lift.png', slap:'seal-slap.png', hit:'seal-collision.png'})) {
+  for (const [key, src] of Object.entries({lift:'assets/seal-lift.png', slap:'assets/seal-slap.png', hit:'assets/seal-collision.png'})) {
     assets[key] = new Image();
     assets[key].onload = () => {
       if(key==='hit'){assetLoaded(key);return;}
@@ -115,7 +115,7 @@
   startButton.disabled = true;
   iceSheet.onload = () => { iceTextures.clear();assetLoaded('ice'); };
   iceSheet.onerror = assetError;
-  iceSheet.src = 'ice-pillars-reference-v1.png';
+  iceSheet.src = 'assets/ice/ice-pillars-reference-v1.png';
   // Source rectangles refer to the two complete columns in the approved PNG.
   // Stretch only the straight shaft; keep the snowy tips at their original aspect ratio.
   const iceRegions = {
