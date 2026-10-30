@@ -5,16 +5,16 @@ body { color:var(--navy);font-family:'Nunito','Noto Sans TC',sans-serif;backgrou
 .shell { width:100%;height:100dvh; }
 .game-wrap { position:relative;width:100%;height:100%;overflow:hidden;background:#48a9eb;touch-action:none; }
 canvas { display:block;width:100%;height:100%;image-rendering:pixelated; }
-.topbar { position:absolute;right:13px;top:13px;z-index:2;display:flex;gap:7px }
+.topbar { position:absolute;right:13px;top:13px;z-index:4;display:flex;gap:7px }
 .topbar button { width:36px;height:36px;border:2px solid #fff;background:#102b55df;color:#fff;border-radius:11px;font-size:19px;cursor:pointer;box-shadow:0 3px 0 #102b5550; }
 .overlay { position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:linear-gradient(#073b6630,#073b6650);transition:opacity .2s; }
 .overlay.hidden { opacity:0;pointer-events:none; }
-.card { width:min(100%,320px);text-align:center;padding:25px 20px 19px;background:#fff;border:3px solid #fff;border-radius:22px;box-shadow:0 8px 0 #14396235; }
+.card { width:min(100%,320px);text-align:center;padding:25px 20px 19px;background:#ffffffeb;border:3px solid #ffffff;border-radius:22px;box-shadow:0 8px 0 #14396235; }
 .eyebrow { color:#438ec0;letter-spacing:.24em;font-size:10px;font-weight:900; }
 h1 { font-size:29px;line-height:1.2;margin:8px 0 9px;font-weight:900; }
 .card p { margin:0 0 14px;font-size:13px;line-height:1.8;color:#53667c;font-weight:700; }
-.best-line { display:flex;justify-content:center;align-items:center;gap:9px;font-size:17px;font-weight:900;color:#58718a;margin:0 0 16px; }
-.best-line strong { color:#173c68;font-size:24px;font-weight:900; }
+.best-line { display:flex;justify-content:center;align-items:center;gap:7px;font-size:14px;font-weight:900;color:#58718a;margin:0 0 16px; }
+.best-line strong { color:inherit;font-size:18px;font-weight:900; }
 .primary { width:100%;border:0;border-radius:14px;padding:13px 16px;background:#258fe5;color:#fff;font:900 15px 'Nunito','Noto Sans TC',sans-serif;cursor:pointer;box-shadow:0 4px 0 #176bb2; }
 .primary span { margin-left:8px;font-size:18px; }
 .primary:active { transform:translateY(3px);box-shadow:0 1px 0 #176bb2; }
@@ -24,3 +24,14 @@ h1 { font-size:29px;line-height:1.2;margin:8px 0 9px;font-weight:900; }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
 
 .topbar { top:max(13px,env(safe-area-inset-top));right:max(13px,env(safe-area-inset-right)); }
+
+.card p.result { margin:24px 0 20px;font-size:20px;line-height:1.4;font-weight:900;color:var(--navy);white-space:nowrap; }
+.card p.result b { font-size:inherit; }
+
+.topbar button[hidden] { display:none; }
+.sound-toggle { display:block;margin:12px auto 0;padding:7px 12px;border:1px solid #c8d8e8;border-radius:10px;background:#f2f7fc;color:#35516b;font:800 12px 'Nunito','Noto Sans TC',sans-serif;cursor:pointer; }
+.sound-toggle[aria-pressed="true"] { background:#e1f3ff;border-color:#55a9e8;color:#176bb2; }
+.topbar .sound-toggle { display:grid;place-items:center;line-height:1;position:relative;width:36px;height:36px;margin:0;padding:0;border:2px solid #fff;border-radius:11px;background:#102b55df;color:#fff;font-size:18px;box-shadow:0 3px 0 #102b5550;white-space:nowrap; }
+.topbar .sound-toggle[aria-pressed="true"] { background:#176bb2;border-color:#fff;color:#fff; }
+
+.topbar .sound-toggle[aria-pressed="false"]::after { content:"";position:absolute;width:20px;height:2px;background:currentColor;left:6px;top:15px;transform:rotate(-45deg); }

@@ -8,6 +8,50 @@
   const overlay = document.querySelector('#overlay'), hud = document.querySelector('#hud');
   const scoreEl = document.querySelector('#score'), bestEl = document.querySelector('#best');
   const pauseCover = document.querySelector('#pauseCover');
+  const pauseButton = document.querySelector('#pause');
+  const soundToggle = document.querySelector('#soundToggle');
+  let soundEnabled = true, audioContext;
+  soundToggle.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    soundToggle.setAttribute('aria-pressed', String(soundEnabled));
+    soundToggle.setAttribute('aria-label', `拍肚音效：${soundEnabled?'開':'關'}`);
+    soundToggle.title = `拍肚音效：${soundEnabled?'開':'關'}`;
+    if(soundEnabled){
+      const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+      if(AudioContextClass){audioContext ||= new AudioContextClass();audioContext.resume();}
+    }
+    soundToggle.blur();
+  });
+  function playSlapSound(){
+    if(!soundEnabled)return;
+    const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextClass)return;
+    audioContext ||= new AudioContextClass();
+    if(audioContext.state==='suspended')audioContext.resume();
+    const now=audioContext.currentTime;
+    // Broadband attack and a tiny second impact give each slap a dry hand-clap texture.
+    const buffer=audioContext.createBuffer(1,Math.ceil(audioContext.sampleRate*.075),audioContext.sampleRate);
+    const samples=buffer.getChannelData(0);
+    for(let i=0;i<samples.length;i++)samples[i]=Math.random()*2-1;
+    const slap=audioContext.createBufferSource(), filter=audioContext.createBiquadFilter(), gain=audioContext.createGain();
+    slap.buffer=buffer;
+    filter.type='bandpass';filter.frequency.value=2100;filter.Q.value=.65;
+    gain.gain.setValueAtTime(.0001,now);
+    gain.gain.exponentialRampToValueAtTime(.56,now+.001);
+    gain.gain.exponentialRampToValueAtTime(.12,now+.009);
+    gain.gain.exponentialRampToValueAtTime(.32,now+.012);
+    gain.gain.exponentialRampToValueAtTime(.0001,now+.065);
+    slap.connect(filter);filter.connect(gain);gain.connect(audioContext.destination);
+    slap.start(now);slap.stop(now+.075);
+    const body=audioContext.createOscillator(), bodyGain=audioContext.createGain();
+    body.type='sine';body.frequency.setValueAtTime(210,now);
+    body.frequency.exponentialRampToValueAtTime(100,now+.035);
+    bodyGain.gain.setValueAtTime(.0001,now);
+    bodyGain.gain.exponentialRampToValueAtTime(.096,now+.002);
+    bodyGain.gain.exponentialRampToValueAtTime(.0001,now+.045);
+    body.connect(bodyGain);bodyGain.connect(audioContext.destination);
+    body.start(now);body.stop(now+.05);
+  }
   const assets = {};
   const loadedAssets = new Set();
   let assetFailed = false;
@@ -40,19 +84,20 @@
     assets[key].onerror = assetError;
     assets[key].src = src;
   }
+  function sealPose() { return state.mode==='over'?'hit':(state.flap>0?'slap':'lift'); }
   const state = { mode:'ready', y:300, vy:0, score:0, best:0, pipes:[], time:0, flap:0, angle:0, pausedFrom:'play' };
   try { const best = Number(localStorage.getItem('seal-best') || 0); state.best = Number.isSafeInteger(best) && best >= 0 ? best : 0; } catch {} bestEl.textContent = state.best;
   const rand = (a,b) => a + Math.random()*(b-a);
-  function start() { if(assetFailed||loadedAssets.size!==4)return;document.activeElement?.blur();state.mode='play';state.y=300;state.vy=0;state.score=0;state.pipes=[];state.time=0;state.flap=0;state.angle=0;spawn(Math.min(W+70,430));overlay.classList.add('hidden');hud.classList.add('visible');scoreEl.textContent='0'; }
+  function start() { if(assetFailed||loadedAssets.size!==4)return;document.activeElement?.blur();state.mode='play';state.y=300;state.vy=0;state.score=0;state.pipes=[];state.time=0;state.flap=0;state.angle=0;spawn(Math.min(W+70,430));overlay.classList.add('hidden');hud.classList.add('visible');pauseButton.hidden=false;scoreEl.textContent='0'; }
   function spawn(x) { const gap=pipeGap(state.score), mid=rand(235,410);state.pipes.push({x,mid,gap,passed:false}); }
   // Increase density every three points, only when placing the next column.
   function pipeSpacing(score) { return Math.max(190,266-Math.floor(score/3)*12); }
   function pipeGap(score) { return Math.max(sealSize.height*2,190-Math.floor(score/3)*6); }
-  function flap() { if(state.mode==='ready'){start();} if(state.mode==='play'){state.vy=-390;state.flap=.19;state.angle=-12*Math.PI/180;} }
-  function finish() { if(state.mode!=='play')return;state.mode='over';hud.classList.remove('visible');if(state.score>state.best){state.best=state.score;bestEl.textContent=state.best;try{localStorage.setItem('seal-best',state.best)}catch{}}document.querySelector('#headline').textContent='哎呀，撞到冰了！';document.querySelector('#description').innerHTML=`這次穿過了 <b>${state.score}</b> 組冰柱`;document.querySelector('#start').innerHTML='再玩一次 <span>↻</span>';overlay.classList.remove('hidden'); }
-  function pause() { if(state.mode==='play'){state.mode='paused';pauseCover.classList.add('visible')}else if(state.mode==='paused'){state.mode='play';pauseCover.classList.remove('visible')} }
+  function flap() { if(state.mode==='ready'){start();} if(state.mode==='play'){state.vy=-390;state.flap=.19;state.angle=-12*Math.PI/180;playSlapSound();} }
+  function finish() { if(state.mode!=='play')return;state.mode='over';hud.classList.remove('visible');pauseButton.hidden=true;if(state.score>state.best){state.best=state.score;bestEl.textContent=state.best;try{localStorage.setItem('seal-best',state.best)}catch{}}document.querySelector('#headline').textContent='哎呀，撞到冰了！';document.querySelector('#description').classList.add('result');document.querySelector('#description').innerHTML=`這次穿過了 <b>${state.score}</b> 組冰柱`;document.querySelector('#start').innerHTML='再玩一次 <span>↻</span>';overlay.classList.remove('hidden'); }
+  function pause() { if(state.mode==='play'){state.mode='paused';pauseButton.hidden=true;pauseCover.classList.add('visible')}else if(state.mode==='paused'){state.mode='play';pauseButton.hidden=false;pauseCover.classList.remove('visible')} }
   document.querySelector('#start').addEventListener('click',e=>{e.stopPropagation();start()});
-  document.querySelector('#pause').addEventListener('click',e=>{e.stopPropagation();if(['play','paused'].includes(state.mode))pause()});
+  pauseButton.addEventListener('click',e=>{e.stopPropagation();if(['play','paused'].includes(state.mode))pause()});
   pauseCover.addEventListener('pointerdown',e=>{e.preventDefault();if(state.mode==='paused')pause()});
   canvas.addEventListener('pointerdown',e=>{e.preventDefault();if(state.mode==='paused'){pause();return}if(state.mode==='play'||state.mode==='ready')flap()});
   window.addEventListener('keydown',e=>{if(e.repeat)return;if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();if(state.mode==='paused')pause();else if(state.mode==='play'||state.mode==='ready')flap()}if(e.code==='Escape'&&['play','paused'].includes(state.mode))pause()});
@@ -161,7 +206,7 @@
   }
   // The same center and rotation drive drawing and the collision mask.
   function sealWorldPoints(){
-    const points=sealMasks[state.flap>0?'slap':'lift']||[];
+    const points=sealMasks[sealPose()]||[];
     const cos=Math.cos(state.angle),sin=Math.sin(state.angle);
     const cx=sealSize.x+sealSize.width/2,cy=Math.round(state.y);
     return points.map(([x,y])=>{
@@ -170,12 +215,12 @@
     });
   }
   function seal(){
-    const asset=state.mode==='over'?assets.hit:(state.flap>0?assets.slap:assets.lift);
+    const asset=assets[sealPose()];
     ctx.save();
     ctx.translate(sealSize.x+sealSize.width/2,Math.round(state.y));
     ctx.rotate(state.angle);
     ctx.imageSmoothingEnabled=false;
-    if(asset.complete&&asset.naturalWidth)ctx.drawImage(asset,-sealSize.width/2,-sealSize.height/2,sealSize.width,sealSize.height);
+    if(asset?.complete&&asset.naturalWidth)ctx.drawImage(asset,-sealSize.width/2,-sealSize.height/2,sealSize.width,sealSize.height);
     else{ctx.fillStyle='#fff6e7';ctx.beginPath();ctx.ellipse(0,0,sealSize.width*.39,sealSize.height*.41,0,0,Math.PI*2);ctx.fill()}
     ctx.restore();
   }
@@ -184,10 +229,11 @@
     W=canvas.width=Math.round(H*innerWidth/innerHeight);ctx.imageSmoothingEnabled=false;
     scenery.width=W;buildScenery();
   });
-  let last=performance.now();function loop(now){const dt=Math.min((now-last)/1000,.035);last=now;if(state.mode==='play'){state.time+=dt*60;state.vy+=1120*dt;state.y+=state.vy*dt;
+  // The first RAF timestamp can precede script initialization; never advance with negative time.
+  let last=null;function loop(now){const dt=last===null?0:Math.max(0,Math.min((now-last)/1000,.035));last=now;if(state.mode==='play')state.flap=Math.max(0,state.flap-dt);if(state.mode==='play'){state.time+=dt*60;state.vy+=1120*dt;state.y+=state.vy*dt;
       const targetAngle=(-12+30*Math.max(0,Math.min(1,(state.vy+200)/500)))*Math.PI/180;
       state.angle+=(targetAngle-state.angle)*(1-Math.exp(-9*dt));
-      if(state.flap>0)state.flap-=dt;for(const p of state.pipes){p.x-=150*dt;if(!p.passed&&p.x+62<sealSize.x){p.passed=true;state.score++;scoreEl.textContent=state.score;}}if(!state.pipes.length)spawn(W+5);while(state.pipes[state.pipes.length-1].x<W+5)spawn(state.pipes[state.pipes.length-1].x+pipeSpacing(state.score));state.pipes=state.pipes.filter(p=>p.x>-70);
+      for(const p of state.pipes){p.x-=150*dt;if(!p.passed&&p.x+62<sealSize.x){p.passed=true;state.score++;scoreEl.textContent=state.score;}}if(!state.pipes.length)spawn(W+5);while(state.pipes[state.pipes.length-1].x<W+5)spawn(state.pipes[state.pipes.length-1].x+pipeSpacing(state.score));state.pipes=state.pipes.filter(p=>p.x>-70);
       const points=sealWorldPoints();
       for(const p of state.pipes){if(touchesIce(p,points)){finish();break}}
       if(state.mode==='play'&&points.some(([,y])=>y>=ground))finish();
