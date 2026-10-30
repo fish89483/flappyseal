@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#42a7ed" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <title>FlappySeal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="game-wrap" aria-label="FlappySeal 遊戲">
+      <canvas id="game" width="360" height="640" aria-label="遊戲畫面"></canvas>
+      <div class="topbar"><button id="pause" aria-label="暫停遊戲" title="暫停">Ⅱ</button></div>
+      <div class="overlay" id="overlay">
+        <div class="card">
+          <div class="eyebrow">FlappySeal</div>
+          <h1 id="headline">FlappySeal</h1>
+          <p id="description">點一下，拍肚子往上彈！<br>穿過冰柱，看看能游多遠。</p>
+          <div class="best-line">最高紀錄 <strong><span id="best">0</span> 分</strong></div>
+          <button class="primary" id="start" disabled>素材載入中…</button>
+          <div class="controls">滑鼠點擊或空白鍵控制</div>
+        </div>
+      </div>
+      <div class="hud" id="hud"><span>得分</span><strong id="score">0</strong></div>
+      <div class="pause-cover" id="pauseCover"><div>⏸<br><small>已暫停<br>點一下繼續</small></div></div>
+    </section>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
