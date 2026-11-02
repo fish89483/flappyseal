@@ -57,7 +57,7 @@
   let assetFailed = false;
   function assetLoaded(key) {
     loadedAssets.add(key);
-    if (!assetFailed && loadedAssets.size === 4) {
+    if (!assetFailed && loadedAssets.size === 6) {
       startButton.disabled = false;
       startButton.innerHTML = '開始遊戲 <span>→</span>';
     }
@@ -67,16 +67,22 @@
     startButton.disabled = true;
     startButton.textContent = '素材載入失敗，請重新整理';
   }
-  for (const [key, src] of Object.entries({lift:'assets/seal-lift.png?v=thick-1', slap:'assets/seal-slap.png?v=thick-1', hit:'assets/seal-collision.png?v=thick-1'})) {
+  // Head and torso only: tail and protruding flipper tips may brush the ice.
+  function isSealBodyPoint(x,y){
+    const nx=x/sealSize.width,ny=y/sealSize.height;
+    return ((nx-.55)/.28)**2+((ny-.52)/.32)**2<=1
+      || ((nx-.77)/.10)**2+((ny-.31)/.20)**2<=1;
+  }
+  for (const [key, src] of Object.entries({lift:'assets/seal-lift.png?v=thick-1', slap:'assets/seal-slap.png?v=thick-1', hit:'assets/seal-collision.png?v=thick-collision-2'})) {
     assets[key] = new Image();
     assets[key].onload = () => {
       if(key==='hit'){assetLoaded(key);return;}
       const tile=document.createElement('canvas');tile.width=sealSize.width;tile.height=sealSize.height;
       const c=tile.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(assets[key],0,0,sealSize.width,sealSize.height);
       const rgba=c.getImageData(0,0,sealSize.width,sealSize.height).data, points=[];
-      // Erode one pixel: transparent padding, thin whiskers and outline fringes do not hurt.
+      // Intersect the body regions with the opaque sprite and inset the edge one pixel.
       for(let y=1;y<sealSize.height-1;y++)for(let x=1;x<sealSize.width-1;x++){
-        if([[0,0],[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>rgba[((y+dy)*sealSize.width+x+dx)*4+3]>200))points.push([x,y]);
+        if(isSealBodyPoint(x,y)&&[[0,0],[-1,0],[1,0],[0,-1],[0,1]].every(([dx,dy])=>rgba[((y+dy)*sealSize.width+x+dx)*4+3]>200))points.push([x,y]);
       }
       sealMasks[key]=points;
       assetLoaded(key);
@@ -88,10 +94,10 @@
   const state = { mode:'ready', y:300, vy:0, score:0, best:0, pipes:[], time:0, flap:0, angle:0, pausedFrom:'play' };
   try { const best = Number(localStorage.getItem('seal-best') || 0); state.best = Number.isSafeInteger(best) && best >= 0 ? best : 0; } catch {} bestEl.textContent = state.best;
   const rand = (a,b) => a + Math.random()*(b-a);
-  function start() { if(assetFailed||loadedAssets.size!==4)return;document.activeElement?.blur();state.mode='play';state.y=300;state.vy=0;state.score=0;state.pipes=[];state.time=0;state.flap=0;state.angle=0;spawn(Math.min(W+70,430));overlay.classList.add('hidden');hud.classList.add('visible');pauseButton.hidden=false;scoreEl.textContent='0'; }
+  function start() { if(assetFailed||loadedAssets.size!==6)return;document.activeElement?.blur();state.mode='play';state.y=300;state.vy=0;state.score=0;state.pipes=[];state.time=0;state.flap=0;state.angle=0;spawn(Math.min(W+70,430));overlay.classList.add('hidden');hud.classList.add('visible');pauseButton.hidden=false;scoreEl.textContent='0'; }
   function spawn(x) { const gap=pipeGap(state.score), mid=rand(235,410);state.pipes.push({x,mid,gap,passed:false}); }
   // Increase density every three points, only when placing the next column.
-  function pipeSpacing(score) { return Math.max(190,266-Math.floor(score/3)*12); }
+  function pipeSpacing(score) { return Math.max(190,320-Math.floor(score/3)*12); }
   function pipeGap(score) { return Math.max(sealSize.height*2,190-Math.floor(score/3)*6); }
   function flap() { if(state.mode==='ready'){start();} if(state.mode==='play'){state.vy=-390;state.flap=.19;state.angle=-12*Math.PI/180;playSlapSound();} }
   function finish() { if(state.mode!=='play')return;state.mode='over';hud.classList.remove('visible');pauseButton.hidden=true;if(state.score>state.best){state.best=state.score;bestEl.textContent=state.best;try{localStorage.setItem('seal-best',state.best)}catch{}}document.querySelector('#headline').textContent='哎呀，撞到冰了！';document.querySelector('#description').classList.add('result');document.querySelector('#description').innerHTML=`這次穿過了 <b>${state.score}</b> 組冰柱`;document.querySelector('#start').innerHTML='再玩一次 <span>↻</span>';overlay.classList.remove('hidden'); }
@@ -141,8 +147,7 @@
     mountain(-15,444,80,501);mountain(67,427,75,501);mountain(158,416,88,501);mountain(268,433,83,501);mountain(365,426,92,501);
     mountain(25,436,71,503);mountain(113,412,84,503);mountain(219,438,76,503);mountain(309,430,72,503);
     scene.restore();}
-    block(scene,0,498,W,7,'#dff7ff');
-    const sea=scene.createLinearGradient(0,503,0,H);sea.addColorStop(0,'#0877ce');sea.addColorStop(.4,'#0061ba');sea.addColorStop(1,'#004ca6');scene.fillStyle=sea;scene.fillRect(0,505,W,H-505);
+    const sea=scene.createLinearGradient(0,498,0,H);sea.addColorStop(0,'#0877ce');sea.addColorStop(.4,'#0061ba');sea.addColorStop(1,'#004ca6');scene.fillStyle=sea;scene.fillRect(0,498,W,H-498);
     for(let i=0;i<215;i++){
       const x=noise(i+10)*W,y=506+noise(i+400)*(H-506),w=4+noise(i+900)*17;
       block(scene,x,y,w,2+noise(i+220)*2,['#0783de','#158feb','#42b9fa','#0057ac'][i%4]);
@@ -150,57 +155,111 @@
     [[24,524,29],[164,516,24],[275,540,37],[82,568,47],[327,608,39],[-8,598,38]].forEach(([x,y,w])=>{
       block(scene,x-4,y+5,w+8,4,'#369cdd');block(scene,x,y,w,5,'#b9e8ff');block(scene,x+w*.16,y-5,w*.65,10,'#e9faff');block(scene,x+w*.34,y-10,w*.3,8,'#fff');block(scene,x+w*.22,y,w*.18,5,'#80caf1');
     });
-    block(scene,0,ground,W,2,'#75cef2');
   }
   buildScenery();
   function background(){ctx.drawImage(scenery,0,0)}
   const iceTextures = new Map();
+  const icePeak = new Image(), icefield = new Image();
+  let peakRegion, groundTile;
+  // Ignore transparent export padding, including nearly transparent fringe pixels.
+  function opaqueRegion(image){
+    const c=document.createElement('canvas');c.width=image.naturalWidth;c.height=image.naturalHeight;
+    const g=c.getContext('2d');g.drawImage(image,0,0);
+    const a=g.getImageData(0,0,c.width,c.height).data;
+    let left=c.width,top=c.height,right=-1,bottom=-1;
+    for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++)if(a[(y*c.width+x)*4+3]>200){
+      left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+    }
+    if(right<left)throw new Error('Empty icefield asset');
+    return {x:left,y:top,w:right-left+1,h:bottom-top+1};
+  }
+  icePeak.onload=()=>{try{peakRegion=opaqueRegion(icePeak);iceTextures.clear();assetLoaded('peak')}catch{assetError()}};
+  icePeak.onerror=assetError;
+  icePeak.src='assets/icefield/snowcap-pillar-white.png?v=1';
+  icefield.onload=()=>{
+    try{
+      const r=opaqueRegion(icefield),tile=document.createElement('canvas');
+      tile.height=H-ground;tile.width=Math.max(1,Math.round(r.w*tile.height/r.h));
+      const c=tile.getContext('2d');c.imageSmoothingEnabled=false;
+      c.drawImage(icefield,r.x,r.y,r.w,r.h,0,0,tile.width,tile.height);
+      groundTile={tile,alpha:c.getImageData(0,0,tile.width,tile.height).data};
+      assetLoaded('ground');
+    }catch{assetError()}
+  };
+  icefield.onerror=assetError;
+  icefield.src='assets/icefield/icefield-base.png?v=1';
+  function groundOffset(){return groundTile?Math.floor(state.time*2.5)%groundTile.tile.width:0}
+  function drawIcefield(){
+    if(!groundTile)return;
+    for(let x=-groundOffset();x<W;x+=groundTile.tile.width)ctx.drawImage(groundTile.tile,x,ground);
+  }
+  function touchesGround(points){
+    if(!groundTile)return false;
+    const {tile,alpha}=groundTile,offset=groundOffset();
+    return points.some(([x,y])=>{
+      if(y>=H)return true;
+      if(y<ground)return false;
+      const tx=((x+offset)%tile.width+tile.width)%tile.width;
+      return alpha[((y-ground)*tile.width+tx)*4+3]>200;
+    });
+  }
   const iceSheet = new Image();
   const startButton = document.querySelector('#start');
   startButton.disabled = true;
   iceSheet.onload = () => { iceTextures.clear();assetLoaded('ice'); };
   iceSheet.onerror = assetError;
   iceSheet.src = 'assets/ice/ice-pillars-reference-v1.png';
-  // Source rectangles refer to the two complete columns in the approved PNG.
+  // Keep the original hanging icicle; lower obstacles use the separate peak sprite.
   // Stretch only the straight shaft; keep the snowy tips at their original aspect ratio.
   const iceRegions = {
-    top: {x:290,y:83,w:289,bodyH:817,capY:900,capH:258},
-    bottom: {x:700,y:163,w:325,bodyY:463,bodyH:600,capH:300}
+    top: {x:290,y:83,w:289,bodyH:817,capY:900,capH:258}
   };
   function iceTexture(h,top){
     const height=Math.max(1,Math.round(h)),key=height+':'+top;
     if(!iceTextures.has(key)){
       const tile=document.createElement('canvas');tile.width=62;tile.height=height;
       const c=tile.getContext('2d');c.imageSmoothingEnabled=false;
-      if(iceSheet.complete&&iceSheet.naturalWidth){
-        const r=iceRegions[top?'top':'bottom'];
+      if(!top&&peakRegion){
+        // Keep the snowcap and foot at a fixed scale; only the long shaft changes height.
+        const r=peakRegion,capSource=Math.round(r.h*.25),footSource=Math.round(r.h*.09);
+        const capHeight=Math.min(height,Math.round(capSource*tile.width/r.w));
+        const footHeight=Math.min(height-capHeight,Math.round(footSource*tile.width/r.w));
+        const shaftHeight=height-capHeight-footHeight;
+        c.drawImage(icePeak,r.x,r.y,r.w,capSource,0,0,tile.width,capHeight);
+        if(shaftHeight>0)c.drawImage(icePeak,r.x,r.y+capSource,r.w,r.h-capSource-footSource,0,capHeight,tile.width,shaftHeight);
+        if(footHeight>0)c.drawImage(icePeak,r.x,r.y+r.h-footSource,r.w,footSource,0,height-footHeight,tile.width,footHeight);
+      }else if(top&&iceSheet.complete&&iceSheet.naturalWidth){
+        const r=iceRegions.top;
         const capHeight=Math.min(height,Math.round(r.capH*62/r.w));
         const bodyHeight=height-capHeight;
-        if(top){
-          if(bodyHeight>0)c.drawImage(iceSheet,r.x,r.y,r.w,r.bodyH,0,0,62,bodyHeight);
-          c.drawImage(iceSheet,r.x,r.capY,r.w,r.capH,0,bodyHeight,62,capHeight);
-        }else{
-          c.drawImage(iceSheet,r.x,r.y,r.w,r.capH,0,0,62,capHeight);
-          if(bodyHeight>0)c.drawImage(iceSheet,r.x,r.bodyY,r.w,r.bodyH,0,capHeight,62,bodyHeight);
-        }
+        if(bodyHeight>0)c.drawImage(iceSheet,r.x,r.y,r.w,r.bodyH,0,0,62,bodyHeight);
+        c.drawImage(iceSheet,r.x,r.capY,r.w,r.capH,0,bodyHeight,62,capHeight);
       }
       if(iceTextures.size >= 64) iceTextures.delete(iceTextures.keys().next().value);
-      iceTextures.set(key,{tile,alpha:c.getImageData(0,0,62,height).data});
+      iceTextures.set(key,{tile,alpha:c.getImageData(0,0,tile.width,height).data});
     }
     return iceTextures.get(key);
   }
-  function ice(x,y,h,top){ctx.drawImage(iceTexture(h,top).tile,Math.round(x),Math.round(y))}
+  function ice(x,y,h,top){
+    const {tile}=iceTexture(h,top);
+    ctx.drawImage(tile,top?Math.round(x):Math.round(x)+31-Math.floor(tile.width/2),Math.round(y));
+  }
+  function obstacleRight(p){
+    const lower=iceTexture(ground+12-(p.mid+p.gap/2),false).tile;
+    return Math.max(Math.round(p.x)+62,Math.round(p.x)+31-Math.floor(lower.width/2)+lower.width);
+  }
   function touchesIce(p,points){
     const radius=Math.hypot(sealSize.width,sealSize.height)/2,centerX=sealSize.x+sealSize.width/2;
-    if(p.x>centerX+radius||p.x+62<centerX-radius)return false;
     const topHeight=p.mid-p.gap/2,bottomY=p.mid+p.gap/2;
-    const upper=iceTexture(topHeight,true),lower=iceTexture(ground-bottomY,false);
+    const upper=iceTexture(topHeight,true),lower=iceTexture(ground+12-bottomY,false);
+    const upperX=Math.round(p.x),lowerX=upperX+31-Math.floor(lower.tile.width/2);
+    if(Math.min(upperX,lowerX)>centerX+radius||Math.max(upperX+62,lowerX+lower.tile.width)<centerX-radius)return false;
     for(const [wx,y] of points){
-      const x=wx-Math.round(p.x);
-      if(x<0||x>=62)continue;
-      if(y>=0&&y<upper.tile.height&&upper.alpha[(y*62+x)*4+3]>200)return true;
+      const x=wx-upperX;
+      if(x>=0&&x<62&&y>=0&&y<upper.tile.height&&upper.alpha[(y*62+x)*4+3]>200)return true;
+      const lx=wx-lowerX;
       const by=y-Math.round(bottomY);
-      if(by>=0&&by<lower.tile.height&&lower.alpha[(by*62+x)*4+3]>200)return true;
+      if(lx>=0&&lx<lower.tile.width&&by>=0&&by<lower.tile.height&&lower.alpha[(by*lower.tile.width+lx)*4+3]>200)return true;
     }
     return false;
   }
@@ -224,7 +283,7 @@
     else{ctx.fillStyle='#fff6e7';ctx.beginPath();ctx.ellipse(0,0,sealSize.width*.39,sealSize.height*.41,0,0,Math.PI*2);ctx.fill()}
     ctx.restore();
   }
-  function render(){background(state.time);for(const p of state.pipes){ice(p.x,0,p.mid-p.gap/2,true);ice(p.x,p.mid+p.gap/2,ground-(p.mid+p.gap/2),false)}seal();if(state.mode==='ready'){ctx.fillStyle='#fff';ctx.font='bold 12px Nunito';ctx.textAlign='center';ctx.fillText('TAP TO SLAP',180,ground-26)}}
+  function render(){background(state.time);for(const p of state.pipes){ice(p.x,0,p.mid-p.gap/2,true);ice(p.x,p.mid+p.gap/2,ground+12-(p.mid+p.gap/2),false)}drawIcefield();seal();}
   window.addEventListener('resize',()=>{
     W=canvas.width=Math.round(H*innerWidth/innerHeight);ctx.imageSmoothingEnabled=false;
     scenery.width=W;buildScenery();
@@ -233,10 +292,10 @@
   let last=null;function loop(now){const dt=last===null?0:Math.max(0,Math.min((now-last)/1000,.035));last=now;if(state.mode==='play')state.flap=Math.max(0,state.flap-dt);if(state.mode==='play'){state.time+=dt*60;state.vy+=1120*dt;state.y+=state.vy*dt;
       const targetAngle=(-12+30*Math.max(0,Math.min(1,(state.vy+200)/500)))*Math.PI/180;
       state.angle+=(targetAngle-state.angle)*(1-Math.exp(-9*dt));
-      for(const p of state.pipes){p.x-=150*dt;if(!p.passed&&p.x+62<sealSize.x){p.passed=true;state.score++;scoreEl.textContent=state.score;}}if(!state.pipes.length)spawn(W+5);while(state.pipes[state.pipes.length-1].x<W+5)spawn(state.pipes[state.pipes.length-1].x+pipeSpacing(state.score));state.pipes=state.pipes.filter(p=>p.x>-70);
+      for(const p of state.pipes){p.x-=150*dt;if(!p.passed&&obstacleRight(p)<sealSize.x){p.passed=true;state.score++;scoreEl.textContent=state.score;}}if(!state.pipes.length)spawn(W+5);while(state.pipes[state.pipes.length-1].x<W+5)spawn(state.pipes[state.pipes.length-1].x+pipeSpacing(state.score));state.pipes=state.pipes.filter(p=>obstacleRight(p)>0);
       const points=sealWorldPoints();
       for(const p of state.pipes){if(touchesIce(p,points)){finish();break}}
-      if(state.mode==='play'&&points.some(([,y])=>y>=ground))finish();
+      if(state.mode==='play'&&touchesGround(points))finish();
       const minY=points.length?Math.min(...points.map(([,y])=>y)):0;
       if(minY<0){state.y-=minY;state.vy=Math.max(0,state.vy)}}render();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 })();

@@ -21,6 +21,7 @@ h1 { font-size:29px;line-height:1.2;margin:8px 0 9px;font-weight:900; }
 .controls { margin-top:14px;color:#6c8496;font-size:12px;font-weight:700; }.controls i { margin:0 6px;color:#e7aa52; }
 .hud { position:absolute;z-index:2;top:15px;left:50%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;color:#fff;text-shadow:0 2px 0 #123460;font-size:11px;font-weight:900;letter-spacing:.08em;pointer-events:none; }.hud strong {font-size:35px;line-height:1.05}.hud.visible{display:flex}
 .pause-cover { display:none;position:absolute;inset:0;z-index:4;background:#0b2c5060;place-items:center;text-align:center;color:white;font-size:45px;text-shadow:0 3px #123460; }.pause-cover.visible{display:grid}.pause-cover small{font-size:15px;line-height:1.6;font-weight:900}
+.version { position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));z-index:5;padding:4px 7px;border:1px solid #ffffff70;border-radius:8px;background:#102b5575;color:#fff;font-size:10px;font-weight:800;letter-spacing:.04em;line-height:1;pointer-events:none;text-shadow:0 1px 2px #102b55; }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
 
 .topbar { top:max(13px,env(safe-area-inset-top));right:max(13px,env(safe-area-inset-right)); }
