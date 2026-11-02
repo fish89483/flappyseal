@@ -10,6 +10,7 @@
   const pauseCover = document.querySelector('#pauseCover');
   const pauseButton = document.querySelector('#pause');
   const soundToggle = document.querySelector('#soundToggle');
+  const bounceStrength = 390 * 0.72;
   let soundEnabled = true, audioContext;
   soundToggle.addEventListener('click', () => {
     soundEnabled = !soundEnabled;
@@ -99,7 +100,7 @@
   // Increase density every three points, only when placing the next column.
   function pipeSpacing(score) { return Math.max(190,320-Math.floor(score/3)*12); }
   function pipeGap(score) { return Math.max(sealSize.height*2,190-Math.floor(score/3)*6); }
-  function flap() { if(state.mode==='ready'){start();} if(state.mode==='play'){state.vy=-390;state.flap=.19;state.angle=-12*Math.PI/180;playSlapSound();} }
+  function flap() { if(state.mode==='ready'){start();} if(state.mode==='play'){state.vy=-bounceStrength;state.flap=.19;state.angle=-12*Math.PI/180;playSlapSound();} }
   function finish() { if(state.mode!=='play')return;state.mode='over';hud.classList.remove('visible');pauseButton.hidden=true;if(state.score>state.best){state.best=state.score;bestEl.textContent=state.best;try{localStorage.setItem('seal-best',state.best)}catch{}}document.querySelector('#headline').textContent='哎呀，撞到冰了！';document.querySelector('#description').classList.add('result');document.querySelector('#description').innerHTML=`這次穿過了 <b>${state.score}</b> 組冰柱`;document.querySelector('#start').innerHTML='再玩一次 <span>↻</span>';overlay.classList.remove('hidden'); }
   function pause() { if(state.mode==='play'){state.mode='paused';pauseButton.hidden=true;pauseCover.classList.add('visible')}else if(state.mode==='paused'){state.mode='play';pauseButton.hidden=false;pauseCover.classList.remove('visible')} }
   document.querySelector('#start').addEventListener('click',e=>{e.stopPropagation();start()});
