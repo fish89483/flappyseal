@@ -67,7 +67,7 @@
     startButton.disabled = true;
     startButton.textContent = '素材載入失敗，請重新整理';
   }
-  for (const [key, src] of Object.entries({lift:'assets/seal-lift.png', slap:'assets/seal-slap.png', hit:'assets/seal-collision.png'})) {
+  for (const [key, src] of Object.entries({lift:'assets/seal-lift.png?v=thick-1', slap:'assets/seal-slap.png?v=thick-1', hit:'assets/seal-collision.png?v=thick-1'})) {
     assets[key] = new Image();
     assets[key].onload = () => {
       if(key==='hit'){assetLoaded(key);return;}
