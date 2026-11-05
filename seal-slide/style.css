@@ -49,3 +49,7 @@
 .slide-live { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
 @media(max-width:390px) { .slide-hud { gap:5px; width:calc(100% - 20px); }.slide-panel { padding:6px 7px; }.slide-vitals .slide-panel { font-size:16px; min-width:75px; }.slide-tools { gap:4px; }.slide-distance small { font-size:9px; } }
 @media(max-height:500px) { .slide-card { padding:15px 22px; width:min(100%,360px); }.slide-card h1 { font-size:25px; margin:6px 0; }.slide-card p { margin:6px 0 10px; }.slide-card .slide-best { margin:10px 0; padding:7px; }.slide-actions { gap:6px; }.slide-actions button { padding:8px; }.slide-card .slide-footnote { margin-top:10px; }.slide-instructions { margin:10px 0; }.slide-toast { bottom:10px; padding:6px 16px; } }
+
+.slide-skip { position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(18px,env(safe-area-inset-bottom)); min-height:44px; padding:10px 14px; border:2px solid #fff; border-radius:12px; background:#102b55eb; color:#fff!important; font-size:13px!important; font-weight:900!important; box-shadow:0 3px 0 #102b5550; }
+.slide-skip span { margin-left:5px; }
+.slide-teaching .slide-toast { bottom:calc(max(18px,env(safe-area-inset-bottom)) + 58px); }

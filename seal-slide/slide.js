@@ -19,12 +19,14 @@
         <div class="slide-panel slide-distance"><strong data-distance>0 m</strong><small data-best>BEST 0 m</small></div>
         <div class="slide-tools"><button class="slide-sound" type="button" aria-label="音效：開" aria-pressed="true">♪</button><button class="slide-pause" type="button" aria-label="暫停遊戲">Ⅱ</button></div>
       </div>
+      <button class="slide-skip" type="button" hidden>跳過教學 <span lang="en">Skip →</span></button>
       <div class="slide-modal"><div class="slide-card"></div></div>
       <div class="slide-toast" role="status" hidden></div><div class="slide-live" aria-live="polite"></div>`;
     host.append(root);
     const canvas = root.querySelector('canvas'), ctx = canvas.getContext('2d');
     const hud = root.querySelector('.slide-hud'), modal = root.querySelector('.slide-modal');
     const card = root.querySelector('.slide-card'), toast = root.querySelector('.slide-toast');
+    const skip = root.querySelector('.slide-skip');
     const sim = SealSlideCore.create(), s = sim.state;
     const sheet = new Image(), atlas = new Image(), centerPillar = new Image(), rightPillar = new Image(), snowBanks = new Image();
     const art = {}, pixels = new Map();
@@ -271,7 +273,13 @@
       b.setAttribute('aria-label', `音效：${sound ? '開' : '關'}`); b.setAttribute('aria-pressed', String(sound));
     }
     function message(text, seconds = 2) { toast.innerHTML = text; toast.hidden = false; toastTime = seconds; }
+    function updateSkip() {
+      const visible = s.mode === 'play' && !!s.tutorial;
+      if (!visible && document.activeElement === skip) canvas.focus({ preventScroll: true });
+      skip.hidden = !visible; root.classList.toggle('slide-teaching', visible);
+    }
     function updateHUD() {
+      updateSkip();
       root.querySelector('[data-hearts]').textContent = `×${s.hearts}`;
       root.querySelector('[data-fish]').textContent = `${s.fish}/3`;
       root.querySelector('[data-distance]').textContent = formatDistance(s.distance);
@@ -279,7 +287,7 @@
     }
     function showCard(title, text, buttons, extra = '') {
       const moveFocus = root.contains(document.activeElement);
-      modal.hidden = false;
+      updateSkip(); modal.hidden = false;
       card.innerHTML = `<div class="slide-eyebrow">SEAL SLIDE</div><h1>${title}</h1><p>${text}</p>${extra}<div class="slide-actions"></div>`;
       const actions = card.querySelector('.slide-actions');
       buttons.forEach(([label, callback, secondary]) => {
@@ -325,7 +333,7 @@
       showCard('休息一下', '冰原會等你，準備好再繼續。', [['繼續滑行 →', resume], ['回到滑行選單', showMenu, true]]);
     }
     function resume() {
-      s.mode = transition ? 'transition' : 'play'; modal.hidden = true; canvas.focus({ preventScroll: true }); last = null;
+      s.mode = transition ? 'transition' : 'play'; updateSkip(); modal.hidden = true; canvas.focus({ preventScroll: true }); last = null;
     }
     function exit() {
       s.mode = 'menu'; root.hidden = true; transition = null;
@@ -386,11 +394,17 @@
       resize(); draw(); root.hidden = false; run();
     }
     function action(value) { if (sim.input(value)) beep('lane'); }
+    skip.addEventListener('click', () => {
+      if (!sim.skipTutorial()) return;
+      releaseDuck(); touch = null; lastLesson = '';
+      events(); updateHUD(); canvas.focus({ preventScroll: true });
+    });
     root.querySelector('.slide-pause').addEventListener('click', pause);
     root.querySelector('.slide-sound').addEventListener('click', () => { sound = !sound; write('seal-slide-sound', sound ? 1 : 0); setSound(); });
     window.addEventListener('keydown', e => {
       if (root.hidden) return;
       if (e.code === 'Escape') { e.preventDefault(); if (s.mode === 'paused') resume(); else pause(); return; }
+      if (e.target === skip && ['Space', 'Enter'].includes(e.code)) return;
       const value = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', ArrowDown: 'duck', KeyS: 'duck' }[e.code];
       if (value === 'duck' && s.mode === 'play') duckKeys.add(e.code);
       if (value) { if (['play', 'paused', 'transition'].includes(s.mode)) e.preventDefault(); if (!e.repeat) action(value); }

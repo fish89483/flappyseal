@@ -47,6 +47,8 @@
       tutorial: null, tutorialDone: false
     };
     function emit(type) { s.events.push(type); }
+    const lastGapAt = [-Infinity, -Infinity, -Infinity];
+    const previousGapLanes = new Set();
     function reset(tutorial = false, initialSpeed = 200, jumpDuration = .5, obstacleInterval = .8) {
       initialSpeed = Number.isFinite(initialSpeed) ? clamp(initialSpeed, SPEED_MIN, SPEED_MAX) : 200;
       Object.assign(s, { mode: 'play', distance: 0, travelled: 0, speed: initialSpeed, initialSpeed, elapsed: 0,
@@ -54,6 +56,7 @@
         hearts: 3, fish: 0, rows: [], events: [], nextRow: initialSpeed * 3.2, safeLane: 1,
         tutorial: tutorial ? { step: 0, wait: 3, active: false, success: false } : null,
         tutorialDone: false });
+      lastGapAt.fill(-Infinity); previousGapLanes.clear();
       setJumpDuration(jumpDuration); setObstacleInterval(obstacleInterval);
     }
     function input(action) {
@@ -65,7 +68,7 @@
       }
       if (action === 'duck') s.duckHeld = true;
       if (s.jump > 0 || s.duck > 0) return false;
-      if (action === 'jump') { s.jump = s.jumpTotal = s.jumpDuration; emit('jump'); return true; }
+      if (action === 'jump') { s.jump = s.jumpTotal = currentJumpDuration(); emit('jump'); return true; }
       if (action === 'duck') { s.duck = 1; emit('duck'); return true; }
       return false;
     }
@@ -74,6 +77,7 @@
       const levels = s.distance < 15000 ? 0 : 1 + Math.floor((s.distance - 15000) / 15000);
       return Math.max(.2, Math.round((s.obstacleInterval - levels * .1) * 100) / 100);
     }
+    function currentJumpDuration() { return clamp(Math.min(s.jumpDuration, obstacleInterval() * .8), .2, .4); }
     function setJumpDuration(seconds) { s.jumpDuration = Number.isFinite(seconds) ? clamp(seconds, .2, 1) : .5; }
     function release(action) { if (action === 'duck') { s.duckHeld = false; s.duck = 0; } }
     function jumpHeight() { return s.jump > 0 ? Math.sin(Math.PI * (1 - s.jump / s.jumpTotal)) : 0; }
@@ -100,10 +104,33 @@
       const count = s.distance > 220 && random() < .6 ? 2 : 1;
       const types = ['block', 'gap', 'arch'];
       const row = { z, safe, obstacles: lanes.slice(0, count).map(lane => ({ lane, type: types[Math.floor(random() * 3)] })), checked: false };
+      const at = s.travelled + z;
+      row.obstacles = row.obstacles.filter(o => {
+        if (o.type !== 'gap') return true;
+        // Reserve 0.30 seconds even after acceleration reaches the speed cap.
+        if (previousGapLanes.has(o.lane) || at - lastGapAt[o.lane] < SPEED_MAX * .3 - 1e-7) return false;
+        lastGapAt[o.lane] = at;
+        return true;
+      });
+      previousGapLanes.clear();
+      for (const o of row.obstacles) if (o.type === 'gap') previousGapLanes.add(o.lane);
       s.rows.push(row);
       // Fish stay on the open lane, with time to align before the obstacle row.
       if (random() < .15) s.rows.push({ z: z - 16, fish: safe, checked: false });
       return row;
+    }
+    function completeTutorial() {
+      if (!s.tutorial) return false;
+      s.tutorial = null; s.tutorialDone = true; s.distance = 0;
+      s.rows = []; s.nextRow = s.travelled + s.speed * 3.2;
+      lastGapAt.fill(-Infinity); previousGapLanes.clear();
+      s.events = []; emit('tutorial-done');
+      return true;
+    }
+    function skipTutorial() {
+      if (s.mode !== 'play' || !s.tutorial) return false;
+      s.jump = s.duck = 0; s.duckHeld = false;
+      return completeTutorial();
     }
     function tutorialTick(dt) {
       const t = s.tutorial;
@@ -112,8 +139,7 @@
       if (t.wait > 0) return;
       if (t.step >= 3) {
         if (t.step === 3) { t.step = 4; t.wait = 3; emit('fish-tip'); return; }
-        s.tutorial = null; s.tutorialDone = true; s.distance = 0;
-        s.rows = []; s.nextRow = s.travelled + s.speed * 3.2; emit('tutorial-done'); return;
+        completeTutorial(); return;
       }
       const type = ['block', 'gap', 'arch'][t.step];
       t.active = true;
@@ -178,7 +204,7 @@
         const dt = Math.min(remaining, 1 / 120); step(dt); remaining -= dt;
       }
     }
-    return { state: s, reset, input, release, setJumpDuration, setObstacleInterval, obstacleInterval, update, jumpHeight, generateRow };
+    return { state: s, reset, input, release, skipTutorial, currentJumpDuration, setJumpDuration, setObstacleInterval, obstacleInterval, update, jumpHeight, generateRow };
   }
   const api = { create, entryPose, entryHopCount, entryDuration, ENTRY_DURATION, hiddenEntry, lookAhead, formatDistance, SPEED_MIN, SPEED_MAX, CAMERA_DISTANCE, ACTION_TIME, LANE_TIME };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
