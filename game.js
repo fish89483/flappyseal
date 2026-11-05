@@ -1,7 +1,7 @@
 (() => {
   const canvas = document.querySelector('#game'), ctx = canvas.getContext('2d');
   const H = canvas.height, ground = H - 54;
-  let W = canvas.width = Math.round(H * innerWidth / innerHeight);
+  let W = canvas.width = Math.round(H * Math.min(innerWidth,768) / innerHeight);
   ctx.imageSmoothingEnabled = false;
   const sealSize = {x:29, width:144, height:72};
   const sealMasks = {};
@@ -92,10 +92,10 @@
     assets[key].src = src;
   }
   function sealPose() { return state.mode==='over'?'hit':(state.flap>0?'slap':'lift'); }
-  const state = { mode:'ready', y:300, vy:0, score:0, best:0, pipes:[], time:0, flap:0, angle:0, pausedFrom:'play', hasFlapped:false, enteredSlide:false };
+  const state = { mode:'ready', x:sealSize.x+sealSize.width/2, y:300, vy:0, score:0, best:0, pipes:[], time:0, flap:0, angle:0, pausedFrom:'play', hasFlapped:false, enteredSlide:false };
   try { const best = Number(localStorage.getItem('seal-best') || 0); state.best = Number.isSafeInteger(best) && best >= 0 ? best : 0; } catch {} bestEl.textContent = state.best;
   const rand = (a,b) => a + Math.random()*(b-a);
-  function start() { if(assetFailed||loadedAssets.size!==7)return;document.activeElement?.blur();state.mode='play';state.hasFlapped=false;state.enteredSlide=false;state.y=300;state.vy=0;state.score=0;state.pipes=[];state.time=0;state.flap=0;state.angle=0;spawn(Math.min(W+70,430));overlay.classList.add('hidden');hud.classList.add('visible');pauseButton.hidden=false;scoreEl.textContent='0'; }
+  function start() { if(assetFailed||loadedAssets.size!==7)return;document.activeElement?.blur();state.mode='play';state.x=sealSize.x+sealSize.width/2;state.hasFlapped=false;state.enteredSlide=false;state.y=300;state.vy=0;state.score=0;state.pipes=[];state.time=0;state.flap=0;state.angle=0;spawn(Math.min(W+70,430));overlay.classList.add('hidden');hud.classList.add('visible');pauseButton.hidden=false;scoreEl.textContent='0'; }
   function spawn(x) { const gap=pipeGap(state.score), mid=rand(235,410);state.pipes.push({x,mid,gap,passed:false}); }
   // Increase density every three points, only when placing the next column.
   function pipeSpacing(score) { return Math.max(190,320-Math.floor(score/3)*12); }
@@ -109,7 +109,7 @@
       const snapshot=document.createElement('canvas');snapshot.width=W;snapshot.height=H;
       snapshot.getContext('2d').drawImage(canvas,0,0);
       state.mode='slide';hud.classList.remove('visible');pauseButton.hidden=true;document.querySelector('.game-wrap').classList.add('slide-active');
-      slideGame.beginEntry({snapshot,side:assets.lift,x:(sealSize.x+sealSize.width/2)/W,y:state.y/H,w:sealSize.width/W,angle:state.angle});
+      slideGame.beginEntry({snapshot,side:assets.hit,x:state.x/W,y:state.y/H,w:sealSize.width/W,angle:state.angle,vy:state.vy/H,slope:groundSlope(),hops:SealSlideCore.entryHopCount(state.x/W)});
       return;
     }
     state.mode='over';hud.classList.remove('visible');pauseButton.hidden=true;if(state.score>state.best){state.best=state.score;bestEl.textContent=state.best;try{localStorage.setItem('seal-best',state.best)}catch{}}document.querySelector('#headline').textContent='哎呀，撞到冰了！';document.querySelector('#description').classList.add('result');document.querySelector('#description').innerHTML=`這次穿過了 <b>${state.score}</b> 組冰柱`;document.querySelector('#start').innerHTML='再玩一次 <span>↻</span>';overlay.classList.remove('hidden'); }
@@ -201,14 +201,24 @@
   icefield.onerror=assetError;
   icefield.src='assets/icefield/icefield-base.png?v=1';
   function groundOffset(){return groundTile?Math.floor(state.time*2.5)%groundTile.tile.width:0}
+  // Keep the fixed downhill slope subtle even in a wide desktop window.
+  function groundSlope(){return Math.min(.05,36/Math.max(1,W-sealSize.x-sealSize.width/2))}
+  function groundShift(x){return groundSlope()*(x-sealSize.x-sealSize.width/2)}
   function drawIcefield(){
     if(!groundTile)return;
-    for(let x=-groundOffset();x<W;x+=groundTile.tile.width)ctx.drawImage(groundTile.tile,x,ground);
+    ctx.save();ctx.transform(1,groundSlope(),0,1,0,groundShift(0));
+    for(let x=-groundOffset();x<W;x+=groundTile.tile.width){
+      ctx.drawImage(groundTile.tile,x,ground);
+      ctx.drawImage(groundTile.tile,0,groundTile.tile.height-1,groundTile.tile.width,1,x,H-1,groundTile.tile.width,Math.ceil(-groundShift(0))+2);
+    }
+    ctx.restore();
   }
   function touchesGround(points){
     if(!groundTile)return false;
     const {tile,alpha}=groundTile,offset=groundOffset();
     return points.some(([x,y])=>{
+      if(y>=H)return true;
+      y=Math.floor(y-groundShift(x));
       if(y>=H)return true;
       if(y<ground)return false;
       const tx=((x+offset)%tile.width+tile.width)%tile.width;
@@ -223,7 +233,7 @@
   iceSheet.src = 'assets/ice/ice-pillars-reference-v1.png';
   const slideGame=SealSlide.create({host:document.querySelector('.game-wrap'),onExit:()=>{
     document.querySelector('.game-wrap').classList.remove('slide-active');
-    state.mode='ready';state.y=300;state.vy=0;state.angle=0;state.pipes=[];state.flap=0;
+    state.mode='ready';state.x=sealSize.x+sealSize.width/2;state.y=300;state.vy=0;state.angle=0;state.pipes=[];state.flap=0;
     overlay.classList.remove('hidden');hud.classList.remove('visible');pauseCover.classList.remove('visible');pauseButton.hidden=true;
     document.querySelector('#headline').textContent='FlappySeal';
     document.querySelector('#description').classList.remove('result');
@@ -267,14 +277,16 @@
     const {tile}=iceTexture(h,top);
     ctx.drawImage(tile,top?Math.round(x):Math.round(x)+31-Math.floor(tile.width/2),Math.round(y));
   }
+  // Bury lower pillars below the canvas so sloped snow always covers their feet.
+  function lowerIceHeight(p){return H+16-(p.mid+p.gap/2)}
   function obstacleRight(p){
-    const lower=iceTexture(ground+12-(p.mid+p.gap/2),false).tile;
+    const lower=iceTexture(lowerIceHeight(p),false).tile;
     return Math.max(Math.round(p.x)+62,Math.round(p.x)+31-Math.floor(lower.width/2)+lower.width);
   }
   function touchesIce(p,points){
-    const radius=Math.hypot(sealSize.width,sealSize.height)/2,centerX=sealSize.x+sealSize.width/2;
+    const radius=Math.hypot(sealSize.width,sealSize.height)/2,centerX=state.x;
     const topHeight=p.mid-p.gap/2,bottomY=p.mid+p.gap/2;
-    const upper=iceTexture(topHeight,true),lower=iceTexture(ground+12-bottomY,false);
+    const upper=iceTexture(topHeight,true),lower=iceTexture(lowerIceHeight(p),false);
     const upperX=Math.round(p.x),lowerX=upperX+31-Math.floor(lower.tile.width/2);
     if(Math.min(upperX,lowerX)>centerX+radius||Math.max(upperX+62,lowerX+lower.tile.width)<centerX-radius)return false;
     for(const [wx,y] of points){
@@ -290,7 +302,7 @@
   function sealWorldPoints(){
     const points=sealMasks[sealPose()]||[];
     const cos=Math.cos(state.angle),sin=Math.sin(state.angle);
-    const cx=sealSize.x+sealSize.width/2,cy=Math.round(state.y);
+    const cx=state.x,cy=Math.round(state.y);
     return points.map(([x,y])=>{
       const dx=x-sealSize.width/2,dy=y-sealSize.height/2;
       return [Math.round(cx+dx*cos-dy*sin),Math.round(cy+dx*sin+dy*cos)];
@@ -299,23 +311,23 @@
   function seal(){
     const asset=assets[sealPose()];
     ctx.save();
-    ctx.translate(sealSize.x+sealSize.width/2,Math.round(state.y));
+    ctx.translate(state.x,Math.round(state.y));
     ctx.rotate(state.angle);
     ctx.imageSmoothingEnabled=false;
     if(asset?.complete&&asset.naturalWidth)ctx.drawImage(asset,-sealSize.width/2,-sealSize.height/2,sealSize.width,sealSize.height);
     else{ctx.fillStyle='#fff6e7';ctx.beginPath();ctx.ellipse(0,0,sealSize.width*.39,sealSize.height*.41,0,0,Math.PI*2);ctx.fill()}
     ctx.restore();
   }
-  function render(showSeal=true){if(state.mode==='slide')return;background(state.time);for(const p of state.pipes){ice(p.x,0,p.mid-p.gap/2,true);ice(p.x,p.mid+p.gap/2,ground+12-(p.mid+p.gap/2),false)}drawIcefield();if(showSeal)seal();}
+  function render(showSeal=true){if(state.mode==='slide')return;background(state.time);for(const p of state.pipes){ice(p.x,0,p.mid-p.gap/2,true);ice(p.x,p.mid+p.gap/2,lowerIceHeight(p),false)}drawIcefield();if(showSeal)seal();}
   window.addEventListener('resize',()=>{
-    W=canvas.width=Math.round(H*innerWidth/innerHeight);ctx.imageSmoothingEnabled=false;
+    W=canvas.width=Math.round(H*Math.min(innerWidth,768)/innerHeight);ctx.imageSmoothingEnabled=false;
     scenery.width=W;buildScenery();
   });
   // The first RAF timestamp can precede script initialization; never advance with negative time.
   let last=null;function loop(now){const dt=last===null?0:Math.max(0,Math.min((now-last)/1000,.035));last=now;if(state.mode==='play')state.flap=Math.max(0,state.flap-dt);if(state.mode==='play'){state.time+=dt*60;state.vy+=1120*dt;state.y+=state.vy*dt;
       const targetAngle=(-12+30*Math.max(0,Math.min(1,(state.vy+200)/500)))*Math.PI/180;
       state.angle+=(targetAngle-state.angle)*(1-Math.exp(-9*dt));
-      for(const p of state.pipes){p.x-=150*dt;if(!p.passed&&obstacleRight(p)<sealSize.x){p.passed=true;state.score++;scoreEl.textContent=state.score;}}if(!state.pipes.length)spawn(W+5);while(state.pipes[state.pipes.length-1].x<W+5)spawn(state.pipes[state.pipes.length-1].x+pipeSpacing(state.score));state.pipes=state.pipes.filter(p=>obstacleRight(p)>0);
+      for(const p of state.pipes){p.x-=150*dt;if(!p.passed&&obstacleRight(p)<state.x-sealSize.width/2){p.passed=true;state.score++;scoreEl.textContent=state.score;}}if(!state.pipes.length)spawn(W+5);while(state.pipes[state.pipes.length-1].x<W+5)spawn(state.pipes[state.pipes.length-1].x+pipeSpacing(state.score));state.pipes=state.pipes.filter(p=>obstacleRight(p)>0);
       const points=sealWorldPoints();
       for(const p of state.pipes){if(touchesIce(p,points)){finish('ice');break}}
       if(state.mode==='play'&&touchesGround(points))finish('ground');

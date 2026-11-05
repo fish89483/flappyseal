@@ -13,7 +13,7 @@
     root.className = 'seal-slide'; root.hidden = true;
     root.setAttribute('aria-label', '海豹滑行');
     root.innerHTML = `
-      <canvas width="480" height="800" tabindex="0" aria-label="海豹滑行：方向鍵或 WASD 換道、跳躍、攤平；Esc 暫停"></canvas>
+      <canvas width="480" height="800" tabindex="0" aria-label="海豹滑行：方向鍵或 WASD 換道、跳躍、攤平；空白鍵跳躍；Esc 暫停"></canvas>
       <div class="slide-hud" hidden>
         <div class="slide-vitals"><div class="slide-panel" aria-label="愛心"><span class="slide-icon" aria-hidden="true">♥</span><span data-hearts>×3</span></div><div class="slide-panel" aria-label="魚收集進度"><canvas class="slide-fish-icon" width="32" height="22" data-fish-icon aria-hidden="true"></canvas><span data-fish>0/3</span></div></div>
         <div class="slide-panel slide-distance"><strong data-distance>0 m</strong><small data-best>BEST 0 m</small></div>
@@ -222,19 +222,31 @@
       if (transition) drawTransition();
     }
     function drawTransition() {
-      const t = clamp(transition.time, 0, 1), ease = t * t * (3 - 2 * t);
-      ctx.save(); ctx.globalAlpha = 1 - ease; ctx.drawImage(transition.snapshot, 0, 0, width, height); ctx.restore();
-      // Carry the landed side sprite forward while the camera reveals its approved rear pose.
-      const rear = clamp((ease - .3) / .6, 0, 1);
-      const x = transition.x * width * (1 - ease) + width / 2 * ease;
-      const y = transition.y * height * (1 - ease) + playerY * ease;
-      ctx.save(); ctx.globalAlpha = 1 - rear;
-      const w = transition.w * width * (1 - ease) + Math.min(width * .21, 106) * ease;
-      ctx.translate(x, y - ease * w * .2); ctx.rotate((transition.angle || 0) * (1 - ease) - ease * .35);
-      ctx.drawImage(transition.side, -w / 2, -w * .25, w, w * .5); ctx.restore();
-      // Cover the normal player until it reaches the transitioning sprite's position.
-      if (rear > 0) seal(0, x, y, 1, rear);
+      const pose = SealSlideCore.entryPose(transition.time, transition.hops), camera = pose.camera;
+      ctx.save(); ctx.globalAlpha = 1 - camera;
+      ctx.drawImage(transition.snapshot, 0, 0, width, height); ctx.restore();
+      const sideWidth = transition.w * width, rearWidth = Math.min(width * .21, 106);
+      const landingX = transition.x * width * (1 - pose.drift) + width / 2 * pose.drift;
+      const x = landingX * (1 - camera) + width / 2 * camera;
+      // Keep one shared foot position so the rear sprite meets the normal player exactly.
+      const landingBottom = transition.y * height + sideWidth * .25 + transition.drop * height * pose.fall + (landingX - transition.x * width) * transition.slope;
+      const bottom = (landingBottom - height * .09 * pose.hop) * (1 - camera) + playerY * camera;
+      const w = sideWidth * (1 - camera) + rearWidth * camera;
+      const rearAspect = frames[0].h / frames[0].w;
+      const aspect = .5 * (1 - pose.rear) + rearAspect * pose.rear;
+      const h = w * aspect * (1 - pose.squash);
+      if (pose.hop > 0) shadow(x, landingBottom - 2, sideWidth * .28, 3, '#82acc7');
+      ctx.save(); ctx.globalAlpha = 1 - pose.rear;
+      ctx.translate(x, bottom - h / 2);
+      ctx.rotate((transition.angle || 0) * (1 - pose.level) - pose.hop * .06);
+      ctx.drawImage(transition.side, -w * (1 + pose.squash * .5) / 2, -h / 2, w * (1 + pose.squash * .5), h);
+      ctx.restore();
+      if (pose.rear > 0) {
+        ctx.save(); ctx.translate(x, bottom); ctx.scale(1, aspect / rearAspect);
+        seal(0, 0, 0, w / rearWidth, pose.rear); ctx.restore();
+      }
     }
+
     function beep(kind) {
       if (!sound) return;
       try {
@@ -287,7 +299,7 @@
         [loadFailed ? '重新載入素材' : ready ? '開始滑行 →' : '素材載入中…', () => { if (loadFailed) location.reload(); else if (ready) start(); }],
         ['操作說明', instructions, true], ['回到 Flappyseal', exit, true]
       ], `<div class="slide-best">最遠滑行<strong>${formatDistance(best)}</strong></div>`);
-      card.insertAdjacentHTML('beforeend', `<p class="slide-footnote">${mobile() ? '四向滑動操作' : '方向鍵 / WASD 操作 · Esc 暫停'}</p>`);
+      card.insertAdjacentHTML('beforeend', `<p class="slide-footnote">${mobile() ? '四向滑動操作' : '方向鍵 / WASD 操作 · 空白鍵跳躍 · Esc 暫停'}</p>`);
       card.querySelector('button').disabled = !ready && !loadFailed;
       run();
     }
@@ -295,7 +307,7 @@
       s.mode = 'help';
       showCard('在冰上輕巧滑行', '自動向前，只要專心閃躲。', [
         ['返回選單', showMenu], ['重新練習教學', () => { if (ready) start(true); }, true]
-      ], `<div class="slide-instructions"><div><b>← → / A D</b>左右換道 · 避開冰塊</div><div><b>↑ / W</b>跳過冰面裂縫</div><div><b>↓ / S</b>按住蹲低，放開恢復 · 穿過低冰拱</div><div><b>三隻魚 → 一顆愛心</b>愛心可超過三顆</div></div><p>手機：左右、向上滑動；向下滑後保持觸控可持續蹲低，放開恢復。<br>跳躍與攤平時仍可換道；兩種動作不能同時使用。</p>`);
+      ], `<div class="slide-instructions"><div><b>← → / A D</b>左右換道 · 避開冰塊</div><div><b>↑ / W / 空白鍵</b>跳過冰面裂縫</div><div><b>↓ / S</b>按住蹲低，放開恢復 · 穿過低冰拱</div><div><b>三隻魚 → 一顆愛心</b>愛心可超過三顆</div></div><p>手機：左右、向上滑動；向下滑後保持觸控可持續蹲低，放開恢復。<br>跳躍與攤平時仍可換道；兩種動作不能同時使用。</p>`);
     }
     function start(forceTutorial = false) {
       if (!ready) return;
@@ -333,7 +345,7 @@
       if (key === lastLesson) return;
       lastLesson = key;
       const title = ['左右換道', '跳過裂縫', '攤平身體'][t.step];
-      const controls = mobile() ? ['← 左右滑動 →', '↑ 向上滑動', '↓ 向下滑動'] : ['← → 或 A / D', '↑ 或 W', '↓ 或 S'];
+      const controls = mobile() ? ['← 左右滑動 →', '↑ 向上滑動', '↓ 向下滑動'] : ['← → 或 A / D', '↑ / W / 空白鍵', '↓ 或 S'];
       message(`<strong>${title}</strong>${controls[t.step]}<small>教學練習 · 失誤可再試一次</small>`, 30);
     }
     function events() {
@@ -360,15 +372,18 @@
       }
       if (s.mode === 'transition' && transition) {
         transition.time += dt;
-        if (transition.time >= 1) start();
+        if (transition.time >= SealSlideCore.entryDuration(transition.hops)) start();
       }
       draw(); animation = requestAnimationFrame(tick);
     }
     function run() { if (!animation) { last = null; animation = requestAnimationFrame(tick); } }
-    function beginEntry({ snapshot, side, x, y, w, angle }) {
-      root.hidden = false; resize(); sim.reset(false, initialSpeed, jumpDuration, obstacleInterval); s.mode = 'transition';
+    function beginEntry({ snapshot, side, x, y, w, angle, vy = 0, slope = 0, hops = 2 }) {
+      sim.reset(false, initialSpeed, jumpDuration, obstacleInterval); s.mode = 'transition';
       modal.hidden = true; hud.hidden = true; toast.hidden = true;
-      transition = { snapshot, side, x, y, w, angle, time: 0 }; run();
+      // Ground contact starts the short belly settle; cap sinking below the collision surface.
+      transition = { snapshot, side, x, y, w, angle, slope, hops, drop: clamp(vy * .015, 0, .012), time: 0 };
+      // Paint the contact frame before revealing the canvas, including on repeat entries.
+      resize(); draw(); root.hidden = false; run();
     }
     function action(value) { if (sim.input(value)) beep('lane'); }
     root.querySelector('.slide-pause').addEventListener('click', pause);
@@ -376,7 +391,7 @@
     window.addEventListener('keydown', e => {
       if (root.hidden) return;
       if (e.code === 'Escape') { e.preventDefault(); if (s.mode === 'paused') resume(); else pause(); return; }
-      const value = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', ArrowDown: 'duck', KeyS: 'duck' }[e.code];
+      const value = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', Space: 'jump', ArrowDown: 'duck', KeyS: 'duck' }[e.code];
       if (value === 'duck' && s.mode === 'play') duckKeys.add(e.code);
       if (value) { if (['play', 'paused', 'transition'].includes(s.mode)) e.preventDefault(); if (!e.repeat) action(value); }
     });

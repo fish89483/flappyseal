@@ -8,6 +8,37 @@
   function hiddenEntry(hasFlapped, cause, entered) {
     return cause === 'ground' && !hasFlapped && !entered;
   }
+  const ENTRY_DURATION = 1.90;
+  function entryHopCount(startX) { return clamp(Math.ceil((.5 - startX) / .125), 2, 4); }
+  function entryDuration(hops = 2) {
+    let duration = .12 + .48 + .12 + .80;
+    for (let i = 1; i < hops; i++) duration += .08 + .30 * .85 ** (i - 1);
+    return duration;
+  }
+  function entryPose(seconds, hops = 2) {
+    const t = clamp(seconds, 0, entryDuration(hops));
+    const smooth = v => { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); };
+    const arc = (start, duration) => {
+      const u = clamp((t - start) / duration, 0, 1);
+      return 4 * u * (1 - u);
+    };
+    let cursor = .12, hop = 0, drift = 0, squash = .16 * arc(0, .12);
+    for (let i = 0; i < hops; i++) {
+      const duration = i === 0 ? .48 : .30 * .85 ** (i - 1);
+      hop += (i === 0 ? 1 : .32 * .55 ** (i - 1)) * arc(cursor, duration);
+      drift += smooth((t - cursor) / duration) / hops;
+      cursor += duration;
+      const settle = i === hops - 1 ? .12 : .08;
+      squash += (i === hops - 1 ? .05 : .10) * arc(cursor, settle);
+      cursor += settle;
+    }
+    return {
+      fall: smooth(t / .08), hop, squash,
+      level: smooth(t / .12), drift,
+      camera: smooth((t - cursor) / .80),
+      rear: smooth((t - cursor - .16) / .56)
+    };
+  }
   function create(random = Math.random) {
     const s = {
       mode: 'menu', distance: 0, travelled: 0, speed: 200, initialSpeed: 200, elapsed: 0,
@@ -149,7 +180,7 @@
     }
     return { state: s, reset, input, release, setJumpDuration, setObstacleInterval, obstacleInterval, update, jumpHeight, generateRow };
   }
-  const api = { create, hiddenEntry, lookAhead, formatDistance, SPEED_MIN, SPEED_MAX, CAMERA_DISTANCE, ACTION_TIME, LANE_TIME };
+  const api = { create, entryPose, entryHopCount, entryDuration, ENTRY_DURATION, hiddenEntry, lookAhead, formatDistance, SPEED_MIN, SPEED_MAX, CAMERA_DISTANCE, ACTION_TIME, LANE_TIME };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SealSlideCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
